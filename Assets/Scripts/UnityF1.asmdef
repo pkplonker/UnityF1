@@ -1,0 +1,16 @@
+{
+    "name": "UnityF1",
+    "rootNamespace": "",
+    "references": [
+        "GUID:49b526a2b0ed0e14c80db4737783ead5"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,3 @@
+[submodule "Packages/OpenF1CSharp"]
+	path = Packages/OpenF1CSharp
+	url = https://github.com/pkplonker/OpenF1CSharp.git
