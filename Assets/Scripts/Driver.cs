@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -18,7 +17,7 @@ namespace DefaultNamespace
 		private List<LapData> lapData;
 		private int index;
 
-		public async Task Init(List<LapData> lapData, DriverData driver)
+		public async Task Init(List<LapData> lapData, DriverData driver, SessionData sessionData)
 		{
 			try
 			{
@@ -38,10 +37,9 @@ namespace DefaultNamespace
 				var rawLocationData = await openF1Reader.Query(new LocationQuery()
 					.Filter(nameof(LocationData.DriverNumber), driver.DriverNumber)
 					.Filter(nameof(LocationData.SessionKey), driver.SessionKey)
-					.Filter(nameof(LocationData.Date), new DateTime(2024, 05, 26, 14, 00, 00, 0),
-						ComparisonOperator.GreaterThanOrEqual)
 					.GenerateQuery());
 				locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
+				locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
 				
 				PostProcessLocationData();
 			}

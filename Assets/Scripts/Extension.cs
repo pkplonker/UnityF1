@@ -14,7 +14,7 @@ namespace DefaultNamespace
 			else
 			{
 				Debug.LogError("Invalid hex color string");
-				return Color.white; // Default color in case of an invalid hex string
+				return Color.magenta;
 			}
 		}
 	}

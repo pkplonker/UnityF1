@@ -21,10 +21,13 @@ public class Importer : MonoBehaviour
 
 	private List<LapData> lapData;
 	private LineRenderer lr;
+
 	private int driver = 4;
-	private int sessionKey = 9523;
+
+	private int sessionKey = 9523; // monaco 2024
 	private List<Driver> drivers = new();
 	private bool init;
+	private SessionData sessionData;
 	private const float THICKNESS = 100;
 
 	public void Start()
@@ -36,18 +39,18 @@ public class Importer : MonoBehaviour
 	{
 		try
 		{
+			if (await GetSessionData()) return;
+
 			var rawLapData = await openF1Reader.Query(new LapQuery()
 				.Filter(nameof(LapData.SessionKey), sessionKey)
 				.GenerateQuery());
 			lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
-			var d = lapData.Where(x => x.DriverNumber == 31).ToList();
 			var rawLocationData = await openF1Reader.Query(new LocationQuery()
 				.Filter(nameof(LocationData.DriverNumber), driver)
 				.Filter(nameof(LocationData.SessionKey), sessionKey)
-				.Filter(nameof(LocationData.Date), new DateTime(2024, 05, 26, 14, 00, 00, 0),
-					ComparisonOperator.GreaterThanOrEqual)
 				.GenerateQuery());
 			locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
+			locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
 		}
 		catch (Exception e)
 		{
@@ -74,6 +77,25 @@ public class Importer : MonoBehaviour
 		GenerateCircuit();
 	}
 
+	private async Task<bool> GetSessionData()
+	{
+		var rawSessionData = await openF1Reader.Query(new SessionQuery()
+			.Filter(nameof(SessionData.SessionKey), sessionKey)
+			.GenerateQuery());
+		var sd = JsonConvert.DeserializeObject<List<SessionData>>(rawSessionData);
+		if (sd.Any())
+		{
+			sessionData = sd.First();
+		}
+		else
+		{
+			Debug.LogError("Failed to get sessionData");
+			return true;
+		}
+
+		return false;
+	}
+
 	private async Task<Task[]> GenerateDrivers(List<LapData> lapData)
 	{
 		var driversRawData = await openF1Reader.Query((new DriverQuery()
@@ -89,8 +111,8 @@ public class Importer : MonoBehaviour
 			go.transform.SetParent(transform);
 			var driverMono = go.AddComponent<Driver>();
 			var i1 = i;
-			await Task.Delay(250);
-			tasks[i] = Task.Run(() => driverMono.Init(lapData, driverData[i1]));
+			await Task.Delay(500);
+			tasks[i] = Task.Run(() => driverMono.Init(lapData, driverData[i1], sessionData));
 			drivers.Add(driverMono);
 		}
 
