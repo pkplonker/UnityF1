@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using DefaultNamespace;
 using Newtonsoft.Json;
 using UnityEngine;
 using OpenF1CSharp;
@@ -11,13 +9,7 @@ using Debug = UnityEngine.Debug;
 
 public class Importer : MonoBehaviour
 {
-	private OpenF1Reader openF1Reader = new OpenF1Reader();
 	private List<LocationData> locationData;
-	private int index = 0;
-	private float time;
-
-	[SerializeField]
-	private float INTERVAL = 1.0f;
 
 	private List<LapData> lapData;
 	private LineRenderer lr;
@@ -28,7 +20,23 @@ public class Importer : MonoBehaviour
 	private List<Driver> drivers = new();
 	private bool init;
 	private SessionData sessionData;
+	private DateTime currentTime;
+
+	public DateTime CurrentTime
+	{
+		get => currentTime;
+		set
+		{
+			if (currentTime != value)
+			{
+				currentTime = value;
+				TimeUpdated?.Invoke(CurrentTime);
+			}
+		}
+	}
+
 	private const float THICKNESS = 100;
+	public event Action<DateTime> TimeUpdated;
 
 	public void Start()
 	{
@@ -40,16 +48,19 @@ public class Importer : MonoBehaviour
 		try
 		{
 			if (await GetSessionData()) return;
-
-			var rawLapData = await openF1Reader.Query(new LapQuery()
+			var rawLapData = await OpenF1QueryManager.Instance.Get(new LapQuery()
 				.Filter(nameof(LapData.SessionKey), sessionKey)
 				.GenerateQuery());
+
 			lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
-			var rawLocationData = await openF1Reader.Query(new LocationQuery()
+
+			var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
 				.Filter(nameof(LocationData.DriverNumber), driver)
 				.Filter(nameof(LocationData.SessionKey), sessionKey)
 				.GenerateQuery());
+
 			locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
+
 			locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
 		}
 		catch (Exception e)
@@ -72,17 +83,22 @@ public class Importer : MonoBehaviour
 		}
 
 		var tasks = await GenerateDrivers(lapData);
-		
+
 		await Task.WhenAll(tasks);
 		GenerateCircuit();
+		init = true;
+		CurrentTime = sessionData.DateStart.Value;
 	}
 
 	private async Task<bool> GetSessionData()
 	{
-		var rawSessionData = await openF1Reader.Query(new SessionQuery()
+		var rawSessionData = await OpenF1QueryManager.Instance.Get(new SessionQuery()
 			.Filter(nameof(SessionData.SessionKey), sessionKey)
 			.GenerateQuery());
-		var sd = JsonConvert.DeserializeObject<List<SessionData>>(rawSessionData);
+		List<SessionData> sd = new();
+
+		sd = JsonConvert.DeserializeObject<List<SessionData>>(rawSessionData);
+
 		if (sd.Any())
 		{
 			sessionData = sd.First();
@@ -98,20 +114,26 @@ public class Importer : MonoBehaviour
 
 	private async Task<Task[]> GenerateDrivers(List<LapData> lapData)
 	{
-		var driversRawData = await openF1Reader.Query((new DriverQuery()
-				.Filter(nameof(DriverData.SessionKey), sessionKey))
+		var driversRawData = await OpenF1QueryManager.Instance.Get(new DriverQuery()
+			.Filter(nameof(DriverData.SessionKey), sessionKey)
 			.GenerateQuery());
-		var driverData = JsonConvert.DeserializeObject<List<DriverData>>(driversRawData);
-		var count = driverData.Count;
+		List<DriverData> driverData = new();
+
+		driverData = JsonConvert.DeserializeObject<List<DriverData>>(driversRawData);
+
+		if (!driverData?.Any() ?? false)
+		{
+			return Array.Empty<Task>();
+		}
+
+		var count = driverData?.Count ?? 0;
 		var tasks = new Task[count];
 		for (int i = 0; i < count; i++)
 		{
-			if (i == 10) await Task.Delay(1000);
 			var go = new GameObject(driverData[i].NameAcronym);
 			go.transform.SetParent(transform);
 			var driverMono = go.AddComponent<Driver>();
 			var i1 = i;
-			await Task.Delay(500);
 			tasks[i] = Task.Run(() => driverMono.Init(lapData, driverData[i1], sessionData));
 			drivers.Add(driverMono);
 		}
@@ -129,23 +151,20 @@ public class Importer : MonoBehaviour
 		lr.SetPositions(data.ToArray());
 		lr.startWidth = THICKNESS;
 		lr.endWidth = THICKNESS;
-		init = true;
 	}
 
 	private void Update()
 	{
 		if (!init) return;
-		time += Time.deltaTime;
 		if (locationData == null) return;
-		if (time > INTERVAL)
+
+		CurrentTime = CurrentTime.AddSeconds(Time.deltaTime);
+
+		foreach (var d in drivers)
 		{
-			foreach (var d in drivers)
+			if (d != null)
 			{
-				time = 0f;
-				if (d != null)
-				{
-					d.Tick();
-				}
+				d.Tick(CurrentTime);
 			}
 		}
 	}
