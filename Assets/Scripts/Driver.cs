@@ -13,6 +13,7 @@ public class Driver : MonoBehaviour, IUpdateable
 	private List<LocationData> locationData;
 	private List<LapData> lapData;
 	private int lastIndex;
+	public int CurrentLap = 0;
 
 	public async Task Init(List<LapData> lapData, DriverData driver, SessionData sessionData)
 	{
@@ -29,7 +30,7 @@ public class Driver : MonoBehaviour, IUpdateable
 				mr.materials[0].color = driver.TeamColour.HexToColor();
 			});
 
-			var rawLocationData =await OpenF1QueryManager.Instance.Get(new LocationQuery()
+			var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
 				.Filter(nameof(LocationData.DriverNumber), driver.DriverNumber)
 				.Filter(nameof(LocationData.SessionKey), driver.SessionKey)
 				.GenerateQuery());
@@ -64,14 +65,21 @@ public class Driver : MonoBehaviour, IUpdateable
 		locationData = sortedFilteredLocationData.OrderBy(x => x.Date.Value).ToList();
 	}
 
-	public void Tick(DateTime currentTime)
+	public bool Tick(DateTime currentTime)
 	{
 		var count = locationData.Count;
-		while (locationData[lastIndex].Date <= currentTime && lastIndex < count)
+		if (lastIndex >= count - 1) return false;
+		while (locationData[lastIndex].Date <= currentTime && lastIndex < count - 1)
 		{
 			var element = locationData[lastIndex];
 			transform.position = new Vector3(element.X.Value, 0, element.Y.Value);
 			lastIndex++;
 		}
+
+		var currentLap = lapData.LastOrDefault(x => x.DateStart < locationData[lastIndex].Date);
+		CurrentLap = currentLap.LapNumber.HasValue ? currentLap.LapNumber.Value : 0;
+		return true;
 	}
+
+
 }

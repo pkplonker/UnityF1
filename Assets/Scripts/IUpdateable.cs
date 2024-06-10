@@ -2,5 +2,5 @@
 
 public interface IUpdateable
 {
-	void Tick(DateTime currentTime);
+	bool Tick(DateTime currentTime);
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DefaultNamespace;
 using Newtonsoft.Json;
 using UnityEngine;
 using OpenF1CSharp;
@@ -13,14 +14,34 @@ public class Importer : MonoBehaviour
 
 	private List<LapData> lapData;
 	private LineRenderer lr;
+	public float PlaybackSpeed = 5;
 
 	private int driver = 4;
 
 	private int sessionKey = 9523; // monaco 2024
 	private List<Driver> drivers = new();
+	private List<IUpdateable> updateables = new();
 	private bool init;
 	private SessionData sessionData;
 	private DateTime currentTime;
+	private List<RaceControlData> raceControlData;
+	private int currentLapNumber = -1;
+	public event Action<int> LapNumberChanged;
+
+	public int CurrentLapNumber
+	{
+		get => currentLapNumber;
+		set
+		{
+			if (value != currentLapNumber)
+			{
+				currentLapNumber = value;
+				LapNumberChanged?.Invoke(currentLapNumber);
+			}
+		}
+	}
+
+	public int MaxLap;
 
 	public DateTime CurrentTime
 	{
@@ -53,7 +74,7 @@ public class Importer : MonoBehaviour
 				.GenerateQuery());
 
 			lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
-
+			MaxLap = lapData.Max(x => x.LapNumber.Value);
 			var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
 				.Filter(nameof(LocationData.DriverNumber), driver)
 				.Filter(nameof(LocationData.SessionKey), sessionKey)
@@ -62,6 +83,11 @@ public class Importer : MonoBehaviour
 			locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
 
 			locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
+
+			var rawRaceControlData = await OpenF1QueryManager.Instance.Get(new RaceControlQuery()
+				.Filter(nameof(RaceControlData.SessionKey), sessionKey).GenerateQuery());
+			raceControlData = JsonConvert.DeserializeObject<List<RaceControlData>>(rawRaceControlData);
+			updateables.Add(new RaceDirectorManager(raceControlData));
 		}
 		catch (Exception e)
 		{
@@ -88,6 +114,7 @@ public class Importer : MonoBehaviour
 		GenerateCircuit();
 		init = true;
 		CurrentTime = sessionData.DateStart.Value;
+		CurrentLapNumber = 0;
 	}
 
 	private async Task<bool> GetSessionData()
@@ -158,14 +185,25 @@ public class Importer : MonoBehaviour
 		if (!init) return;
 		if (locationData == null) return;
 
-		CurrentTime = CurrentTime.AddSeconds(Time.deltaTime);
-
-		foreach (var d in drivers)
+		CurrentTime = CurrentTime.AddSeconds(Time.deltaTime * PlaybackSpeed);
+		bool allFalse = true;
+		foreach (var driver in drivers)
 		{
-			if (d != null)
+			if (driver.Tick(CurrentTime))
 			{
-				d.Tick(CurrentTime);
+				allFalse = false;
 			}
+
+			var ln = driver.CurrentLap + 1;
+			if (driver.CurrentLap > CurrentLapNumber)
+			{
+				CurrentLapNumber = ln;
+			}
+		}
+
+		if (allFalse)
+		{
+			init = false;
 		}
 	}
 }
