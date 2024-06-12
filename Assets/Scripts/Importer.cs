@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DefaultNamespace;
 using Newtonsoft.Json;
 using UnityEngine;
 using OpenF1CSharp;
@@ -205,5 +204,7 @@ public class Importer : MonoBehaviour
 		{
 			init = false;
 		}
+
+		updateables.WhereNotNull().ForEach(x => x.Tick(CurrentTime));
 	}
 }

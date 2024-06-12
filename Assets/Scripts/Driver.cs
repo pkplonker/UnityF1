@@ -55,13 +55,6 @@ public class Driver : MonoBehaviour, IUpdateable
 
 	private void PostProcessLocationData(List<LocationData> sortedFilteredLocationData)
 	{
-		// for (var i = 0; i < sortedFilteredLocationData.Count; i++)
-		// {
-		// 	var data1 = sortedFilteredLocationData[i];
-		// 	data1.Date = sortedFilteredLocationData[i].Date.Value.AddHours(-1);
-		// 	sortedFilteredLocationData[i] = data1;
-		// }
-
 		locationData = sortedFilteredLocationData.OrderBy(x => x.Date.Value).ToList();
 	}
 

@@ -1,4 +1,7 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 
 public static class Extension
 {
@@ -9,10 +12,21 @@ public static class Extension
 		{
 			return color;
 		}
-		else
+
+		Debug.LogError("Invalid hex color string");
+		return Color.magenta;
+	}
+
+	public static void ForEach<T>(this IEnumerable<T> collection, Action<T> action)
+	{
+		foreach (var c in collection)
 		{
-			Debug.LogError("Invalid hex color string");
-			return Color.magenta;
+			action.Invoke(c);
 		}
 	}
+
+	public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> collection) => collection.Where(x => x != null);
+
+	public static IEnumerable<T> WherePropertyNotNull<T, TProperty>(this IEnumerable<T> collection,
+		Func<T, TProperty> propertySelector) =>  collection.Where(x => x != null && propertySelector(x) != null);
 }
