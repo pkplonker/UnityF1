@@ -86,7 +86,12 @@ public class Importer : MonoBehaviour
 			var rawRaceControlData = await OpenF1QueryManager.Instance.Get(new RaceControlQuery()
 				.Filter(nameof(RaceControlData.SessionKey), sessionKey).GenerateQuery());
 			raceControlData = JsonConvert.DeserializeObject<List<RaceControlData>>(rawRaceControlData);
-			updateables.Add(new RaceDirectorManager(raceControlData));
+			var sector1 = lapData.Max(x => x.SegmentsSector1.Count);
+			var sector2 = lapData.Max(x => x.SegmentsSector1.Count);
+			var sector3 = lapData.Max(x => x.SegmentsSector1.Count);
+
+			updateables.Add(new RaceDirectorManager(raceControlData, sector1, sector1 + sector2,
+				sector1 + sector2 + sector3, sessionData.DateStart.Value));
 		}
 		catch (Exception e)
 		{
@@ -186,7 +191,7 @@ public class Importer : MonoBehaviour
 
 		CurrentTime = CurrentTime.AddSeconds(Time.deltaTime * PlaybackSpeed);
 		bool allFalse = true;
-		foreach (var driver in drivers)
+		foreach (var driver in drivers.WhereNotNull())
 		{
 			if (driver.Tick(CurrentTime))
 			{

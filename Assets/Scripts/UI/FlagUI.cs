@@ -10,22 +10,31 @@ using Color = System.Drawing.Color;
 public class FlagUI : MonoBehaviour
 {
 	[SerializeField]
-	private Image image;
+	private Image sector1;
 
-	private Dictionary<RaceDirectorManager.Flag, UnityEngine.Color> flagColorDict;
+	[SerializeField]
+	private Image sector2;
+
+	[SerializeField]
+	private Image sector3;
+
+	[SerializeField]
+	private Image sectorTrack;
+
+	private Dictionary<Flag, UnityEngine.Color> flagColorDict;
 
 	private void Start()
 	{
 		ServiceLocator.Instance.ServiceRegistered += OnServiceRegistered;
-		flagColorDict = new Dictionary<RaceDirectorManager.Flag, UnityEngine.Color>
+		flagColorDict = new Dictionary<Flag, UnityEngine.Color>
 		{
-			{RaceDirectorManager.Flag.Yellow, UnityEngine.Color.yellow},
-			{RaceDirectorManager.Flag.DoubleYellow, UnityEngine.Color.yellow},
-			{RaceDirectorManager.Flag.Red, UnityEngine.Color.red},
-			{RaceDirectorManager.Flag.Green, UnityEngine.Color.green},
-			{RaceDirectorManager.Flag.Blue, UnityEngine.Color.blue},
-			{RaceDirectorManager.Flag.Chequered, UnityEngine.Color.magenta},
-			{RaceDirectorManager.Flag.Clear, UnityEngine.Color.white},
+			{Flag.Yellow, UnityEngine.Color.yellow},
+			{Flag.DoubleYellow, UnityEngine.Color.yellow},
+			{Flag.Red, UnityEngine.Color.red},
+			{Flag.Green, UnityEngine.Color.green},
+			//{Flag.Blue, UnityEngine.Color.blue},
+			{Flag.Chequered, UnityEngine.Color.magenta},
+			{Flag.Clear, new UnityEngine.Color(0,0,0,0)},
 		};
 	}
 
@@ -37,12 +46,30 @@ public class FlagUI : MonoBehaviour
 		}
 	}
 
-	private void OnFlagChanged(RaceDirectorManager.Flag flag)
+	private void OnFlagChanged(FlagState flagState)
 	{
-		if (flagColorDict.TryGetValue(flag, out var color))
+		if (flagColorDict.TryGetValue(flagState.Flag, out var color))
 		{
-			image.color = color;
-			Debug.Log($"Setting Color {Enum.GetName(typeof(RaceDirectorManager.Flag), flag)}");
+			switch (flagState.Area)
+			{
+				case FlagArea.One:
+					sector1.color = color;
+					break;
+				case FlagArea.Two:
+					sector2.color = color;
+					break;
+				case FlagArea.Three:
+					sector3.color = color;
+					break;
+				case FlagArea.Track:
+					sectorTrack.color = color;
+					break;
+				default:
+					Debug.Log($"Invalid flagstate{flagState.ToString()}");
+					break;
+			}
+			Debug.Log(
+				$"Setting Color {Enum.GetName(typeof(Flag), flagState.Flag)} in {Enum.GetName(typeof(FlagArea), flagState.Area)}");
 		}
 	}
 }

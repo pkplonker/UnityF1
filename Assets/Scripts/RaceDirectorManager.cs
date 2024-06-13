@@ -7,45 +7,45 @@ using UnityEngine;
 
 public class RaceDirectorManager : IUpdateable, IService
 {
-	public enum Flag
-	{
-		Green,
-		Yellow,
-		DoubleYellow,
-		Clear,
-		Red,
-		Blue,
-		Chequered
-	}
-
-	private Flag currentFlag;
-
-	public Flag CurrentFlag
-	{
-		get => currentFlag;
-		set
-		{
-			if (value != currentFlag)
-			{
-				currentFlag = value;
-				FlagChanged?.Invoke(CurrentFlag);
-			}
-		}
-	}
+	private FlagState[] CurrentFlags;
 
 	private readonly List<RaceControlData> raceControlData;
 	private int lastIndex = 0;
-	public event Action<Flag> FlagChanged;
+	private readonly int subSector1Count;
+	private readonly int subSector2Count;
+	private readonly int subSector3Count;
+	private readonly DateTime startTime;
 
-	public RaceDirectorManager(List<RaceControlData> raceControlData)
+	public event Action<FlagState> FlagChanged;
+	public event Action<RaceControlData> RaceDirectorNotification;
+
+	public RaceDirectorManager(List<RaceControlData> raceControlData, int sector1, int sector2, int sector3,
+		DateTime startTime)
 	{
+		this.startTime = startTime;
+		this.subSector1Count = sector1;
+		this.subSector2Count = sector2;
+		this.subSector3Count = sector3;
 		ServiceLocator.Instance.RegisterService(this);
 		this.raceControlData = raceControlData;
-		// raceControlData
-		// 	.GroupBy(x => x.Flag)
-		// 	.Select(g => g.First())
-		// 	.WherePropertyNotNull(x => x.Flag)
-		// 	.ForEach(x => Debug.Log(x.Flag.ToString()));
+
+		lastIndex = raceControlData.Count(x => x.Date.Value < startTime);
+		CurrentFlags = new FlagState[4]
+		{
+			new FlagState(Flag.Clear, FlagArea.One),
+			new FlagState(Flag.Clear, FlagArea.Two),
+			new FlagState(Flag.Clear, FlagArea.Three),
+			new FlagState(Flag.Clear, FlagArea.Track),
+		};
+		foreach (var fs in CurrentFlags)
+		{
+			fs.FlagStateChanged += OnFlagChanged;
+		}
+	}
+
+	private void OnFlagChanged(FlagState state)
+	{
+		FlagChanged?.Invoke(state);
 	}
 
 	public bool Tick(DateTime currentTime)
@@ -55,34 +55,40 @@ public class RaceDirectorManager : IUpdateable, IService
 		while (raceControlData[lastIndex].Date <= currentTime && lastIndex < count - 1)
 		{
 			var element = raceControlData[lastIndex];
-			if (!string.IsNullOrEmpty(element.Flag))
+			if (!string.IsNullOrEmpty(element.Message))
 			{
-				switch (element.Flag)
+				RaceDirectorNotification?.Invoke(element);
+			}
+
+			FlagArea area = FlagArea.Track;
+			if (string.Equals(element.Scope, "Track", StringComparison.InvariantCultureIgnoreCase))
+			{
+				area = FlagArea.Track;
+				SetFlag(CurrentFlags[(int) area], element.Flag);
+			}
+			else if (string.Equals(element.Scope, "Sector", StringComparison.InvariantCultureIgnoreCase))
+			{
+				if (element.Sector.HasValue)
 				{
-					case "GREEN":
-						CurrentFlag = Flag.Green;
-						break;
-					case "YELLOW":
-					case "DOUBLE YELLOW":
-						CurrentFlag = Flag.Yellow;
-						break;
-					case "RED":
-						CurrentFlag = Flag.Red;
-						break;
-					case "BLUE":
-						CurrentFlag = Flag.Blue;
-						break;
-					case "CLEAR":
-						CurrentFlag = Flag.Clear;
-						break;
-					case "CHEQUERED":
-						CurrentFlag = Flag.Chequered;
-						break;
-					default:
-						CurrentFlag = Flag.Clear;
-						Debug.Log($"Unrecognised flag {element.Flag}");
-						break;
+					if (element.Sector.Value < subSector1Count)
+					{
+						area = FlagArea.One;
+					}
+					else if (element.Sector.Value < subSector2Count)
+					{
+						area = FlagArea.Two;
+					}
+					else if (element.Sector.Value < subSector3Count)
+					{
+						area = FlagArea.Three;
+					}
 				}
+
+				SetFlag(CurrentFlags[(int) area], element.Flag);
+			}
+			else if (string.Equals(element.Scope, "Driver", StringComparison.InvariantCultureIgnoreCase))
+			{
+				//not yet implemented
 			}
 
 			lastIndex++;
@@ -91,7 +97,57 @@ public class RaceDirectorManager : IUpdateable, IService
 		return true;
 	}
 
-	public void Initialize()
+	private void SetFlag(FlagState flagState, string elementFlag)
 	{
+		if (!string.IsNullOrEmpty(elementFlag))
+		{
+			switch (elementFlag)
+			{
+				case "GREEN":
+					flagState.Flag = Flag.Green;
+					break;
+				case "YELLOW":
+				case "DOUBLE YELLOW":
+					flagState.Flag = Flag.Yellow;
+					break;
+				case "RED":
+					flagState.Flag = Flag.Red;
+					break;
+				case "BLUE":
+					flagState.Flag = Flag.Blue;
+					break;
+				case "CLEAR":
+					flagState.Flag = Flag.Clear;
+					break;
+				case "CHEQUERED":
+					flagState.Flag = Flag.Chequered;
+					break;
+				default:
+					flagState.Flag = Flag.Clear;
+					Debug.Log($"Unrecognised flag {flagState.Flag}");
+					break;
+			}
+		}
 	}
+
+	public void Initialize() { }
+}
+
+public enum Flag
+{
+	Green,
+	Yellow,
+	DoubleYellow,
+	Clear,
+	Red,
+	Blue,
+	Chequered
+}
+
+public enum FlagArea
+{
+	One,
+	Two,
+	Three,
+	Track
 }
