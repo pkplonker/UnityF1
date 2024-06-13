@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using OpenF1CSharp;
 using TMPro;
 using UnityEngine;
@@ -18,6 +17,7 @@ public class RaceNotificationUI : MonoBehaviour
 		this.lifetime = lifetime;
 		this.text.text =
 			$"{(raceControlData.Date.HasValue ? raceControlData.Date.Value.ToString("hh\\:mm\\:ss") : "")} {raceControlData.Message}";
+		StartCoroutine(KillTimer());
 	}
 
 	private IEnumerator KillTimer()

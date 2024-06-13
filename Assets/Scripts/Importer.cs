@@ -68,27 +68,11 @@ public class Importer : MonoBehaviour
 		try
 		{
 			if (await GetSessionData()) return;
-			var rawLapData = await OpenF1QueryManager.Instance.Get(new LapQuery()
-				.Filter(nameof(LapData.SessionKey), sessionKey)
-				.GenerateQuery());
+			await GenerateLapData();
+			await GenerateLocationData();
 
-			lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
-			MaxLap = lapData.Max(x => x.LapNumber.Value);
-			var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
-				.Filter(nameof(LocationData.DriverNumber), driver)
-				.Filter(nameof(LocationData.SessionKey), sessionKey)
-				.GenerateQuery());
-
-			locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
-
-			locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
-
-			var rawRaceControlData = await OpenF1QueryManager.Instance.Get(new RaceControlQuery()
-				.Filter(nameof(RaceControlData.SessionKey), sessionKey).GenerateQuery());
-			raceControlData = JsonConvert.DeserializeObject<List<RaceControlData>>(rawRaceControlData);
-			var sector1 = lapData.Max(x => x.SegmentsSector1.Count);
-			var sector2 = lapData.Max(x => x.SegmentsSector1.Count);
-			var sector3 = lapData.Max(x => x.SegmentsSector1.Count);
+			await GenerateRaceControlData();
+			var (sector1, sector2, sector3) = GetSectorTimes();
 
 			updateables.Add(new RaceDirectorManager(raceControlData, sector1, sector1 + sector2,
 				sector1 + sector2 + sector3, sessionData.DateStart.Value));
@@ -99,10 +83,10 @@ public class Importer : MonoBehaviour
 			throw;
 		}
 
-		for (int i = 0; i < locationData.Count; i++)
+		for (var i = 0; i < locationData.Count; i++)
 		{
 			var data1 = locationData[i];
-			data1.Date = locationData[i].Date.Value.AddHours(-1);
+			data1.Date = locationData[i].Date?.AddHours(-1);
 			locationData[i] = data1;
 		}
 
@@ -119,6 +103,43 @@ public class Importer : MonoBehaviour
 		init = true;
 		CurrentTime = sessionData.DateStart.Value;
 		CurrentLapNumber = 0;
+	}
+
+	private (int sector1, int sector2, int sector3) GetSectorTimes()
+	{
+		var sector1 = lapData.Max(x => x.SegmentsSector1.Count);
+		var sector2 = lapData.Max(x => x.SegmentsSector1.Count);
+		var sector3 = lapData.Max(x => x.SegmentsSector1.Count);
+		return (sector1, sector2, sector3);
+	}
+
+	private async Task GenerateRaceControlData()
+	{
+		var rawRaceControlData = await OpenF1QueryManager.Instance.Get(new RaceControlQuery()
+			.Filter(nameof(RaceControlData.SessionKey), sessionKey).GenerateQuery());
+		raceControlData = JsonConvert.DeserializeObject<List<RaceControlData>>(rawRaceControlData);
+	}
+
+	private async Task GenerateLocationData()
+	{
+		var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
+			.Filter(nameof(LocationData.DriverNumber), driver)
+			.Filter(nameof(LocationData.SessionKey), sessionKey)
+			.GenerateQuery());
+
+		locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
+
+		locationData = locationData.Where(x => x.Date.Value > sessionData.DateStart.Value).ToList();
+	}
+
+	private async Task GenerateLapData()
+	{
+		var rawLapData = await OpenF1QueryManager.Instance.Get(new LapQuery()
+			.Filter(nameof(LapData.SessionKey), sessionKey)
+			.GenerateQuery());
+
+		lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
+		MaxLap = lapData.Max(x => x.LapNumber.Value);
 	}
 
 	private async Task<bool> GetSessionData()

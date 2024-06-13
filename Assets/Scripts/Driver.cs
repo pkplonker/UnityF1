@@ -30,21 +30,7 @@ public class Driver : MonoBehaviour, IUpdateable
 				mr.materials[0].color = driver.TeamColour.HexToColor();
 			});
 
-			var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
-				.Filter(nameof(LocationData.DriverNumber), driver.DriverNumber)
-				.Filter(nameof(LocationData.SessionKey), driver.SessionKey)
-				.GenerateQuery());
-			locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
-			var filteredLocationData = locationData
-				.Where(x => x.Date.HasValue && x.Date.Value > sessionData.DateStart.Value)
-				.ToList();
-
-			// Sort the filtered list by Date
-			var sortedFilteredLocationData = filteredLocationData
-				.OrderBy(x => x.Date.Value)
-				.ToList();
-
-			PostProcessLocationData(sortedFilteredLocationData);
+			await GenerateLocationData(driver, sessionData);
 		}
 		catch (Exception e)
 		{
@@ -53,8 +39,22 @@ public class Driver : MonoBehaviour, IUpdateable
 		}
 	}
 
-	private void PostProcessLocationData(List<LocationData> sortedFilteredLocationData)
+	private async Task GenerateLocationData(DriverData driver, SessionData sessionData)
 	{
+		var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
+			.Filter(nameof(LocationData.DriverNumber), driver.DriverNumber)
+			.Filter(nameof(LocationData.SessionKey), driver.SessionKey)
+			.GenerateQuery());
+		locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
+		
+		var filteredLocationData = locationData
+			.Where(x => x.Date.HasValue && x.Date.Value > sessionData.DateStart.Value)
+			.ToList();
+
+		var sortedFilteredLocationData = filteredLocationData
+			.OrderBy(x => x.Date.Value)
+			.ToList();
+
 		locationData = sortedFilteredLocationData.OrderBy(x => x.Date.Value).ToList();
 	}
 
@@ -70,7 +70,7 @@ public class Driver : MonoBehaviour, IUpdateable
 		}
 
 		var currentLap = lapData.LastOrDefault(x => x.DateStart < locationData[lastIndex].Date);
-		CurrentLap = currentLap.LapNumber.HasValue ? currentLap.LapNumber.Value : 0;
+		CurrentLap = currentLap.LapNumber ?? 0;
 		return true;
 	}
 

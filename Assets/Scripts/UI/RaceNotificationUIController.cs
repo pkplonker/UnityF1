@@ -1,6 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using OpenF1CSharp;
 using UnityEngine;
 
@@ -26,7 +23,6 @@ public class RaceNotificationUIController : MonoBehaviour
 	private void Start()
 	{
 		ServiceLocator.Instance.ServiceRegistered += OnServiceRegistered;
-
 		notificationDatas = new RaceControlData[maxElements];
 		notifications = new RaceNotificationUI[maxElements];
 	}

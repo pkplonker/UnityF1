@@ -14,7 +14,6 @@ public class RaceDirectorManager : IUpdateable, IService
 	private readonly int subSector1Count;
 	private readonly int subSector2Count;
 	private readonly int subSector3Count;
-	private readonly DateTime startTime;
 
 	public event Action<FlagState> FlagChanged;
 	public event Action<RaceControlData> RaceDirectorNotification;
@@ -22,20 +21,19 @@ public class RaceDirectorManager : IUpdateable, IService
 	public RaceDirectorManager(List<RaceControlData> raceControlData, int sector1, int sector2, int sector3,
 		DateTime startTime)
 	{
-		this.startTime = startTime;
-		this.subSector1Count = sector1;
-		this.subSector2Count = sector2;
-		this.subSector3Count = sector3;
+		subSector1Count = sector1;
+		subSector2Count = sector2;
+		subSector3Count = sector3;
 		ServiceLocator.Instance.RegisterService(this);
 		this.raceControlData = raceControlData;
 
 		lastIndex = raceControlData.Count(x => x.Date.Value < startTime);
 		CurrentFlags = new FlagState[4]
 		{
-			new FlagState(Flag.Clear, FlagArea.One),
-			new FlagState(Flag.Clear, FlagArea.Two),
-			new FlagState(Flag.Clear, FlagArea.Three),
-			new FlagState(Flag.Clear, FlagArea.Track),
+			new (Flag.Clear, FlagArea.One),
+			new (Flag.Clear, FlagArea.Two),
+			new (Flag.Clear, FlagArea.Three),
+			new (Flag.Clear, FlagArea.Track),
 		};
 		foreach (var fs in CurrentFlags)
 		{
@@ -43,10 +41,7 @@ public class RaceDirectorManager : IUpdateable, IService
 		}
 	}
 
-	private void OnFlagChanged(FlagState state)
-	{
-		FlagChanged?.Invoke(state);
-	}
+	private void OnFlagChanged(FlagState state) => FlagChanged?.Invoke(state);
 
 	public bool Tick(DateTime currentTime)
 	{
@@ -60,7 +55,7 @@ public class RaceDirectorManager : IUpdateable, IService
 				RaceDirectorNotification?.Invoke(element);
 			}
 
-			FlagArea area = FlagArea.Track;
+			var area = FlagArea.Track;
 			if (string.Equals(element.Scope, "Track", StringComparison.InvariantCultureIgnoreCase))
 			{
 				area = FlagArea.Track;
@@ -99,34 +94,32 @@ public class RaceDirectorManager : IUpdateable, IService
 
 	private void SetFlag(FlagState flagState, string elementFlag)
 	{
-		if (!string.IsNullOrEmpty(elementFlag))
+		if (string.IsNullOrEmpty(elementFlag)) return;
+		switch (elementFlag)
 		{
-			switch (elementFlag)
-			{
-				case "GREEN":
-					flagState.Flag = Flag.Green;
-					break;
-				case "YELLOW":
-				case "DOUBLE YELLOW":
-					flagState.Flag = Flag.Yellow;
-					break;
-				case "RED":
-					flagState.Flag = Flag.Red;
-					break;
-				case "BLUE":
-					flagState.Flag = Flag.Blue;
-					break;
-				case "CLEAR":
-					flagState.Flag = Flag.Clear;
-					break;
-				case "CHEQUERED":
-					flagState.Flag = Flag.Chequered;
-					break;
-				default:
-					flagState.Flag = Flag.Clear;
-					Debug.Log($"Unrecognised flag {flagState.Flag}");
-					break;
-			}
+			case "GREEN":
+				flagState.Flag = Flag.Green;
+				break;
+			case "YELLOW":
+			case "DOUBLE YELLOW":
+				flagState.Flag = Flag.Yellow;
+				break;
+			case "RED":
+				flagState.Flag = Flag.Red;
+				break;
+			case "BLUE":
+				flagState.Flag = Flag.Blue;
+				break;
+			case "CLEAR":
+				flagState.Flag = Flag.Clear;
+				break;
+			case "CHEQUERED":
+				flagState.Flag = Flag.Chequered;
+				break;
+			default:
+				flagState.Flag = Flag.Clear;
+				Debug.Log($"Unrecognised flag {flagState.Flag}");
+				break;
 		}
 	}
 

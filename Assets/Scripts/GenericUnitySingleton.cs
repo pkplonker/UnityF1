@@ -1,6 +1,4 @@
 ﻿using UnityEngine;
-
-
 	/// <summary>
 	///GenericUnitySingleton - Persistent singleton class for Unity.
 	/// </summary>

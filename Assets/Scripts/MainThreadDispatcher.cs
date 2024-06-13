@@ -8,10 +8,7 @@ public class MainThreadDispatcher : GenericUnitySingleton<MainThreadDispatcher>
 	private static readonly Queue<Action> ExecutionQueue = new Queue<Action>();
 	public TaskScheduler Sceduler { get; private set; }
 
-	private void Start()
-	{
-		Sceduler = TaskScheduler.FromCurrentSynchronizationContext();
-	}
+	private void Start() => Sceduler = TaskScheduler.FromCurrentSynchronizationContext();
 
 	public void Enqueue(Action action)
 	{
@@ -31,9 +28,6 @@ public class MainThreadDispatcher : GenericUnitySingleton<MainThreadDispatcher>
 			}
 		}
 	}
-	
-	public void StartCoroutineOnMain(IEnumerator coroutine)
-	{
-		StartCoroutine(coroutine);
-	}
+
+	public void StartCoroutineOnMain(IEnumerator coroutine) => StartCoroutine(coroutine);
 }
