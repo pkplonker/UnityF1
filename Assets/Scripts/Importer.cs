@@ -7,7 +7,7 @@ using UnityEngine;
 using OpenF1CSharp;
 using Debug = UnityEngine.Debug;
 
-public class Importer : MonoBehaviour
+public class Importer : MonoBehaviour, IService
 {
 	private List<LocationData> locationData;
 
@@ -17,7 +17,7 @@ public class Importer : MonoBehaviour
 
 	private int driver = 4;
 
-	private int sessionKey = 9523; // monaco 2024
+	public int SessionKey { get; private set; } = 9523; // monaco 2024
 	private List<Driver> drivers = new();
 	private List<IUpdateable> updateables = new();
 	private bool init;
@@ -30,7 +30,7 @@ public class Importer : MonoBehaviour
 	public int CurrentLapNumber
 	{
 		get => currentLapNumber;
-		set
+		private set
 		{
 			if (value != currentLapNumber)
 			{
@@ -40,12 +40,15 @@ public class Importer : MonoBehaviour
 		}
 	}
 
-	public int MaxLap;
+	public int MaxLap { get; private set; }
+
+	private List<IntervalData> intervalData;
+	private List<PositionData> positionData;
 
 	public DateTime CurrentTime
 	{
 		get => currentTime;
-		set
+		private set
 		{
 			if (currentTime != value)
 			{
@@ -57,9 +60,11 @@ public class Importer : MonoBehaviour
 
 	private const float THICKNESS = 100;
 	public event Action<DateTime> TimeUpdated;
+	public event Action<List<Driver>> DriversRegistered;
 
 	public void Start()
 	{
+		ServiceLocator.Instance.RegisterService(this);
 		GetData();
 	}
 
@@ -103,6 +108,7 @@ public class Importer : MonoBehaviour
 		init = true;
 		CurrentTime = sessionData.DateStart.Value;
 		CurrentLapNumber = 0;
+		DriversRegistered?.Invoke(drivers);
 	}
 
 	private (int sector1, int sector2, int sector3) GetSectorTimes()
@@ -116,7 +122,7 @@ public class Importer : MonoBehaviour
 	private async Task GenerateRaceControlData()
 	{
 		var rawRaceControlData = await OpenF1QueryManager.Instance.Get(new RaceControlQuery()
-			.Filter(nameof(RaceControlData.SessionKey), sessionKey).GenerateQuery());
+			.Filter(nameof(RaceControlData.SessionKey), SessionKey).GenerateQuery());
 		raceControlData = JsonConvert.DeserializeObject<List<RaceControlData>>(rawRaceControlData);
 	}
 
@@ -124,7 +130,7 @@ public class Importer : MonoBehaviour
 	{
 		var rawLocationData = await OpenF1QueryManager.Instance.Get(new LocationQuery()
 			.Filter(nameof(LocationData.DriverNumber), driver)
-			.Filter(nameof(LocationData.SessionKey), sessionKey)
+			.Filter(nameof(LocationData.SessionKey), SessionKey)
 			.GenerateQuery());
 
 		locationData = JsonConvert.DeserializeObject<List<LocationData>>(rawLocationData);
@@ -135,7 +141,7 @@ public class Importer : MonoBehaviour
 	private async Task GenerateLapData()
 	{
 		var rawLapData = await OpenF1QueryManager.Instance.Get(new LapQuery()
-			.Filter(nameof(LapData.SessionKey), sessionKey)
+			.Filter(nameof(LapData.SessionKey), SessionKey)
 			.GenerateQuery());
 
 		lapData = JsonConvert.DeserializeObject<List<LapData>>(rawLapData);
@@ -145,7 +151,7 @@ public class Importer : MonoBehaviour
 	private async Task<bool> GetSessionData()
 	{
 		var rawSessionData = await OpenF1QueryManager.Instance.Get(new SessionQuery()
-			.Filter(nameof(SessionData.SessionKey), sessionKey)
+			.Filter(nameof(SessionData.SessionKey), SessionKey)
 			.GenerateQuery());
 		List<SessionData> sd = new();
 
@@ -167,11 +173,20 @@ public class Importer : MonoBehaviour
 	private async Task<Task[]> GenerateDrivers(List<LapData> lapData)
 	{
 		var driversRawData = await OpenF1QueryManager.Instance.Get(new DriverQuery()
-			.Filter(nameof(DriverData.SessionKey), sessionKey)
+			.Filter(nameof(DriverData.SessionKey), SessionKey)
 			.GenerateQuery());
 		List<DriverData> driverData = new();
-
 		driverData = JsonConvert.DeserializeObject<List<DriverData>>(driversRawData);
+
+		var rawIntervalData = await OpenF1QueryManager.Instance.Get(new IntervalQuery()
+			.Filter(nameof(IntervalData.SessionKey), SessionKey).GenerateQuery());
+		intervalData = new List<IntervalData>();
+		intervalData = JsonConvert.DeserializeObject<List<IntervalData>>(rawIntervalData);
+
+		var rawPositionData = await OpenF1QueryManager.Instance.Get(new PositionQuery()
+			.Filter(nameof(PositionData.SessionKey), SessionKey).GenerateQuery());
+		positionData = new List<PositionData>();
+		positionData = JsonConvert.DeserializeObject<List<PositionData>>(rawPositionData);
 
 		if (!driverData?.Any() ?? false)
 		{
@@ -186,7 +201,10 @@ public class Importer : MonoBehaviour
 			go.transform.SetParent(transform);
 			var driverMono = go.AddComponent<Driver>();
 			var i1 = i;
-			tasks[i] = Task.Run(() => driverMono.Init(lapData, driverData[i1], sessionData));
+			tasks[i] = Task.Run(() => driverMono.Init(lapData,
+				intervalData.Where(x => x.DriverNumber == driverData[i1].DriverNumber).ToList(),
+				positionData.Where(x => x.DriverNumber == driverData[i1].DriverNumber).ToList(), driverData[i1],
+				sessionData));
 			drivers.Add(driverMono);
 		}
 
@@ -233,4 +251,6 @@ public class Importer : MonoBehaviour
 
 		updateables.WhereNotNull().ForEach(x => x.Tick(CurrentTime));
 	}
+
+	public void Initialize() { }
 }

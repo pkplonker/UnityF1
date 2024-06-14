@@ -18,7 +18,6 @@ public class FlagUI : MonoBehaviour
 	private Image sectorTrack;
 
 	private Dictionary<Flag, UnityEngine.Color> flagColorDict;
-
 	private void Start()
 	{
 		ServiceLocator.Instance.ServiceRegistered += OnServiceRegistered;
