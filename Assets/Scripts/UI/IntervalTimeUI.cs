@@ -16,6 +16,7 @@ public class IntervalTimeUI : MonoBehaviour
 	private List<IntervalTimeElementUI> elements = new();
 	private List<Driver> drivers;
 	private Dictionary<Driver, IntervalTimeElementUI> driverElementMap;
+	private bool init;
 	private void Awake() => ServiceLocator.Instance.ServiceRegistered += OnServiceRegistered;
 
 	private void OnServiceRegistered(IService obj)
@@ -43,11 +44,13 @@ public class IntervalTimeUI : MonoBehaviour
 			driverElementMap[element.Driver] = element;
 		}
 
+		init = true;
 		UpdateIntervals(this.drivers);
 	}
 
 	private void UpdateIntervals(List<Driver> drivers)
 	{
+		if (!init) return;
 		drivers.Sort((d1, d2) => d1.Position.CompareTo(d2.Position));
 		for (var i = 0; i < drivers.Count; i++)
 		{

@@ -36,7 +36,7 @@ public class IntervalTimeElementUI : MonoBehaviour
 		position.text = Driver.Position.ToString();
 		var gap = ShowGapToLeader ? Driver.GapToLeader : Driver.Interval;
 		if (gap == "0.0") gap = "Leader";
-		interval.text = gap;
+		interval.text = gap ?? "+Lap";
 		tyre.text = Driver.Tyre;
 	}
 }
